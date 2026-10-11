@@ -2,6 +2,32 @@
 
 After learning several algorithms for classification problems, it is time to put them to work on new data and compare how they perform. In this challenge you pull the diabetes data from a database, explore it, and build models that predict whether a patient has diabetes. You decide which evaluation metric matters here, tune your models, and reason about how to handle imbalanced classes.
 
+## My Results
+
+**Problem.** Predict whether a patient has diabetes (Pima Indians Diabetes data, 768 patients) from medical measurements stored in a Postgres database. Full work: [1_diabetes_challenge.ipynb](1_diabetes_challenge.ipynb).
+
+**Metric.** In medical screening a missed diabetic patient (false negative) costs more than a false alarm, so models are selected on **F2** (recall weighted twice as much as precision).
+
+**Data work.**
+
+- Joined four tables (`patient`, `blood_metrics`, `skin`, `pedigree_outcome`) with `LEFT JOIN` on the patient id.
+- Found 235 orphan blood records without a patient, and two measurement dates per patient. Tested both dates against the outcome: only `2022-12-13` shows the expected glucose difference between diabetic and healthy patients (141 vs 110), so it is the real one.
+- Treated zeros in `Glucose`, `BloodPressure` and `BMI` as missing values (median imputation from the training set). Dropped `Insulin` (48% missing) and `SkinThickness` (29% missing), which correlate strongly with `Glucose` and `BMI`.
+- Handled class imbalance (65 / 35) with SMOTE inside an `imblearn` Pipeline, so it only runs on the training part of each CV fold.
+
+**Models** (stratified 5-fold CV on the training set, then one evaluation on the held-out test set):
+
+| Model | CV F2 | Test F2 | Test Recall | Test ROC AUC |
+|---|---|---|---|---|
+| Baseline rule (`Glucose > 120`) | 0.663 | | | |
+| **Logistic Regression (final)** | **0.698 +/- 0.033** | **0.684** | **0.70** | **0.84** |
+| Random Forest (tuned, `max_depth = 3`) | 0.713 +/- 0.032 | | 0.80 | 0.85 |
+| HistGradientBoosting (randomized search) | 0.695 +/- 0.030 | | 0.78 | 0.84 |
+
+**Conclusion.** All tuned models beat the baseline, but they are within noise of each other on this small dataset. I chose Logistic Regression before looking at the test set: smallest train-validation gap, simplest, and interpretable for a doctor. Its test F2 (0.684) matches the CV estimate. Missed patients sit in a glucose "grey zone" around 120; lowering the decision threshold (chosen on training data) would trade more false alarms for fewer missed cases.
+
+**Tools.** Python, SQL (Postgres, SQLAlchemy), pandas, scikit-learn, imbalanced-learn, seaborn.
+
 ## Learning Objectives
 
 By the end of this repository, you should be able to:
